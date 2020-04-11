@@ -1,20 +1,19 @@
 from ludpyhelper.RL.QLearning.qtable import QTable, NQTable
 from ludpyhelper.RL.helpers.reward_tracker import RTrack
 import numpy as np
-import bottleneck as bn
 import gym
 from tqdm import tqdm
 import matplotlib.pyplot as plt
 
-env = gym.make('CartPole-v1')
+env = gym.make('LunarLander-v2')
 
-load_old_table = False
-move_treshold = 200
-epochs = 100_000
+load_old_table = True
+epochs = 20_000
+render_every = epochs//100
 
 epsilon = 1.0
 epsilon_decay_start = 1
-epsilon_decay_end = epochs // 4 * 3
+epsilon_decay_end = (epochs // 4) * 3
 epsilon_decay = epsilon / (epsilon_decay_end - epsilon_decay_start)
 
 agent = NQTable(action_space=env.action_space.n, n_q_tabels=2, initial_memory_size=100, max_memory_size=4_000,
@@ -22,12 +21,12 @@ agent = NQTable(action_space=env.action_space.n, n_q_tabels=2, initial_memory_si
                 learning_rate=0.1, discount_factor=0.95, q_init=0,
                 shrinking_threshold=None, adaptively=True)
 if load_old_table:
-    agent.load_table("qTable.pickel")
+    agent.load_table("qTableLunarLander.pickel")
 
 
 def make_state(observation):
-    mins = np.array([-2.4, -10, -12, -10])
-    maxs = np.array([2.4, 10, 12, 10])
+    mins = np.full(env.observation_space.shape[0], -3)
+    maxs = np.full(env.observation_space.shape[0], 3)
     states_steps = np.array([40] * len(mins))
 
     norm_states = (np.array(observation) - mins) / (maxs - mins)
@@ -38,35 +37,35 @@ def make_state(observation):
 
 rt = RTrack()
 
+there_has_been_a_winner = False
 epsilon_hist = []
 memory_size = []
 for epoch in tqdm(range(epochs)):
     observation = env.reset()
     state = make_state(observation)
     done = False
-    moves_count = 0
     epoch_reward = 0
 
     while not done:
-        # env.render()
+        if not epoch%render_every:
+            env.render()
 
         action = agent.act(state)
 
         (observation, reward, done, info) = env.step(action)  # take a random action
         new_state = make_state(observation)
-        if done:
-            reward = -1.0
+
         epoch_reward += reward
         agent.update(state, action, new_state, reward, done)
 
         state = new_state
 
-        if move_treshold < moves_count:
-            break
-        moves_count += 1
-    
     agent.train_on_memory(100)
-    
+
+    if not there_has_been_a_winner and epoch_reward >= 200:
+        print(f"Winner at: {epoch}")
+        there_has_been_a_winner = True
+
     rt.add(epoch_reward)
     epsilon_hist.append(agent.epsilon)
     memory_size.append(len(agent.aer))
@@ -86,6 +85,6 @@ plt.title("memory_size")
 plt.plot(memory_size)
 plt.show()
 
-agent.save_table("qTable.pickel")
+agent.save_table("qTableLunarLander.pickel")
 
 pass
