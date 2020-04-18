@@ -1,4 +1,4 @@
-from ludpyhelper.RL.QLearning.qtable import QTable, NQTable
+from ludpyhelper.RL.Deep import DQ
 from ludpyhelper.RL.helpers.reward_tracker import RTrack
 import numpy as np
 import gym
@@ -16,13 +16,14 @@ epsilon_decay_start = 1
 epsilon_decay_end = (epochs // 4) * 3
 epsilon_decay = epsilon / (epsilon_decay_end - epsilon_decay_start)
 
-agent = NQTable(action_space=env.action_space.n, n_q_tabels=2, initial_memory_size=100, max_memory_size=4_000,
-                n_old=75, k=20, epsilon=epsilon, epsilon_update=[epsilon_decay_start, epsilon_decay_end, epsilon_decay],
-                learning_rate=0.1, discount_factor=0.95, q_init=0,
-                shrinking_threshold=None, adaptively=True)
-if load_old_table:
-    agent.load_table("qTableLunarLander.pickel")
+def creat_model_func():
+    return model
 
+agent = DQ(creat_model_func=creat_model_func, log_dir="Logs/", update_target_every=5, initial_memory_size=100, max_memory_size=4_000,
+                n_old=75, k=20, epsilon=epsilon, epsilon_update=[epsilon_decay_start, epsilon_decay_end, epsilon_decay],
+                learning_rate=0.1, discount_factor=0.95,
+                shrinking_threshold=None, adaptively=True)
+......
 
 def make_state(observation):
     mins = np.full(env.observation_space.shape[0], -3)
@@ -32,7 +33,7 @@ def make_state(observation):
     norm_states = (np.array(observation) - mins) / (maxs - mins)
     norm_states = np.clip(norm_states, 0.0, 1.0)
     discrete_states = np.round(states_steps * norm_states).astype(int)
-    return tuple(discrete_states)
+    return discrete_states
 
 
 rt = RTrack()
