@@ -9,7 +9,8 @@ class ModifiedTensorBoard(TensorBoard):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         self.step = 1
-        self.writer = tf.summary.FileWriter(self.log_dir)
+        self.writer = tf.summary.create_file_writer(self.log_dir)
+        self._log_write_dir = self.log_dir
 
     # Overriding this method to stop creating default log writer
     def set_model(self, model):
@@ -32,4 +33,5 @@ class ModifiedTensorBoard(TensorBoard):
     # Custom method for saving own metrics
     # Creates writer, writes custom metrics and closes writer
     def update_stats(self, **stats):
-        self._write_logs(stats, self.step)
+        self._log_metrics(stats,"", self.step)
+        self.step += 1

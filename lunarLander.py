@@ -1,40 +1,50 @@
 from ludpyhelper.RL.Deep import DQ
 from ludpyhelper.RL.helpers.reward_tracker import RTrack
+from ludpyhelper.mics.functions import ramp
 import numpy as np
 import gym
 from tqdm import tqdm
 import matplotlib.pyplot as plt
+from tensorflow import keras
 
 env = gym.make('LunarLander-v2')
 
 load_old_table = True
-epochs = 20_000
-render_every = epochs//100
+epochs = 5_000
+render_every = epochs // 100
 
 epsilon = 1.0
 epsilon_decay_start = 1
 epsilon_decay_end = (epochs // 4) * 3
-epsilon_decay = epsilon / (epsilon_decay_end - epsilon_decay_start)
-
-def creat_model_func():
-    return model
-
-agent = DQ(creat_model_func=creat_model_func, log_dir="Logs/", update_target_every=5, initial_memory_size=100, max_memory_size=4_000,
-                n_old=75, k=20, epsilon=epsilon, epsilon_update=[epsilon_decay_start, epsilon_decay_end, epsilon_decay],
-                learning_rate=0.1, discount_factor=0.95,
-                shrinking_threshold=None, adaptively=True)
-......
 
 def make_state(observation):
     mins = np.full(env.observation_space.shape[0], -3)
     maxs = np.full(env.observation_space.shape[0], 3)
-    states_steps = np.array([40] * len(mins))
 
     norm_states = (np.array(observation) - mins) / (maxs - mins)
     norm_states = np.clip(norm_states, 0.0, 1.0)
-    discrete_states = np.round(states_steps * norm_states).astype(int)
-    return discrete_states
+    return norm_states
 
+def creat_model_func():
+    model = keras.models.Sequential()
+    model.add(keras.layers.Dense(16, activation="relu", input_shape=env.observation_space.shape))
+    model.add(keras.layers.Dense(32, activation="relu"))
+    model.add(keras.layers.Dense(env.action_space.n))
+
+    model.compile(loss="mse", optimizer="adam", metrics=["mae"])
+
+    return model
+
+
+def epsilon_update(ep):
+    return ramp(ep, 1.0, epsilon_decay_end, epsilon_decay_start)
+
+
+agent = DQ(creat_model_func=creat_model_func, log_dir="Logs", update_target_every=5, initial_memory_size=100,
+           max_memory_size=4_000,
+           n_old=75, k=20, epsilon_update=epsilon_update,
+           discount_factor=0.95,
+           shrinking_threshold=None, adaptively=True)
 
 rt = RTrack()
 
@@ -42,26 +52,25 @@ there_has_been_a_winner = False
 epsilon_hist = []
 memory_size = []
 for epoch in tqdm(range(epochs)):
-    observation = env.reset()
-    state = make_state(observation)
+    state = make_state(env.reset())
     done = False
     epoch_reward = 0
 
     while not done:
-        if not epoch%render_every:
+        if not epoch % render_every:
             env.render()
 
         action = agent.act(state)
 
-        (observation, reward, done, info) = env.step(action)  # take a random action
-        new_state = make_state(observation)
+        (new_state, reward, done, info) = env.step(action)
+        new_state = make_state(new_state)
 
         epoch_reward += reward
-        agent.update(state, action, new_state, reward, done)
+        agent.add_to_pre_memory(state, action, new_state, reward, done)
 
         state = new_state
 
-    agent.train_on_memory(100)
+    agent.train_on_memory(64, 64, True, flat_sample=False, update_memory=True)
 
     if not there_has_been_a_winner and epoch_reward >= 200:
         print(f"Winner at: {epoch}")
@@ -85,7 +94,5 @@ plt.figure()
 plt.title("memory_size")
 plt.plot(memory_size)
 plt.show()
-
-agent.save_table("qTableLunarLander.pickel")
 
 pass
