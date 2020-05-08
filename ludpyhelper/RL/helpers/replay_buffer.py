@@ -1,19 +1,15 @@
 import numpy as np
 import random
-import threading
 
 class ER():
     def __init__(self, max_buffer_length=None):
         self.buffer = []
         self.max_buffer_length = max_buffer_length
-        self.mutex = threading.Lock()
 
     def append(self, experience, resize=True):
-        self.mutex.acquire()
         self.buffer.append(experience)
         if resize:
             self._resize_buffer()
-        self.mutex.release()
 
     def _resize_buffer(self):
         self.buffer = self._resize_list(self.buffer, self.max_buffer_length)
@@ -24,10 +20,8 @@ class ER():
         return list
 
     def sample(self, batch_size):
-        self.mutex.acquire()
         real_batch_size = min(batch_size, len(self.buffer))
         batch = random.sample(self.buffer, real_batch_size)
-        self.mutex.release()
         return np.array(batch)
 
     def __len__(self):
@@ -45,15 +39,16 @@ class PER(ER):
         self.td_buffer = self._resize_list(self.td_buffer, self.max_buffer_length)
 
     def append(self, experience, td, resize=True):
-        self.mutex.acquire()
         self.buffer.append(experience)
         self.td_buffer.append(td)
-        if resize:
+
+        if resize is True:
             self._resize_buffer()
-        self.mutex.release()
+        elif isinstance(resize, int):
+            self.max_buffer_length = resize
+            self._resize_buffer()
 
     def sample(self, batch_size, flat_sample=False):
-        self.mutex.acquire()
         if not flat_sample:
             real_batch_size = min(batch_size, len(self.buffer))
 
@@ -65,7 +60,6 @@ class PER(ER):
             batch = np.array(self.buffer)[sample_idxs]
         else:
             batch = super().sample(batch_size)
-        self.mutex.release()
         return batch
 
 
@@ -80,12 +74,15 @@ class AER(PER):
         self.max_memory_size = max_memory_size
         self.adaptively = adaptively
 
-    def append(self, experience, td):
-        self.mutex.acquire()
+    def append(self, experience, td, resize=True):
         self.buffer.append(experience)
         self.td_buffer.append(td)
-        self._resize_buffer()
-        self.mutex.release()
+        if resize is True:
+            self._resize_buffer()
+        elif isinstance(resize, int):
+            self.max_buffer_length = resize
+            super()._resize_buffer()
+
 
     def _resize_buffer(self):
         self.time_step += 1

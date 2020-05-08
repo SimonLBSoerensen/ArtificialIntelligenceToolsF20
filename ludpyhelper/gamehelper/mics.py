@@ -206,6 +206,7 @@ def get_pos_state(pos, player_pieces, enemy_pieces, roundcount = 2):
     return events
 
 def cal_game_events(pre_action_player_pieces, pre_action_enemy_pieces, pos_action_player_pieces, pos_action_enemy_pieces):
+    #pre_action_player_pieces, pre_action_enemy_pieces, pos_action_player_pieces, pos_action_enemy_pieces = np.array(pre_action_player_pieces), np.array(pre_action_enemy_pieces), np.array(pos_action_player_pieces), np.array(pos_action_enemy_pieces)
     events = {}
     enemy_hit_home = flatten(pre_action_enemy_pieces).count(ludopy.player.HOME_INDEX) < flatten(pos_action_enemy_pieces).count(ludopy.player.HOME_INDEX)
     events["enemy_hit_home"] = enemy_hit_home
@@ -280,18 +281,7 @@ def cal_reward_and_endgame(game_events):
         "player_left_home": [True, 1],
         "player_piece_got_to_goal": [True, 4],
         "player_is_a_winner": [True, 10],
-        "other_player_is_a_winner": [True, -10],
-    }
-    reward_tabel = {
-        "player_left_home": [True, 0.3],
-        "player_piece_got_to_goal":[True,  0.2],
-        "piece_enter_glob": [True, 0.1],
-        "piece_enter_star": [True, 0.35],
-        "enemy_hit_home": [True, 0.45],
-        "piece_enter_safe": [True, 0.3],
-        "piece_enter_safe_for_round_1": [True, 0.2],
-        "player_hit_home": [True, -0.15],
-        "piece_is_in_safe_round_1": [False, -0.2],
+        "other_player_is_a_winner": [True, -10000],
     }
 
     end_game_evnets = ["player_is_a_winner", "other_player_is_a_winner"]
@@ -309,35 +299,9 @@ def cal_reward_and_endgame(game_events):
 
 def cal_state(player_pieces, enemy_pieces, dice):
     # Piece States
-    used_piece_states = [
-        'home',
-        'neutral_glob',
-        'enemy_glob',
-        'friendly_glob',
-        'home_areal',
-        'goal',
-        'safe',
-        'safe_round_1',
-        'Q1',
-        'Q2',
-        'Q3',
-        'Q4',
-    ]
     used_piece_states = ['home_areal', "safe_round_1"]
 
     # Actions States
-    used_action_states = [
-        'enemy_hit_home',
-        'got_hit_home',
-        'moved_out_of_home',
-        {'new_pos_events': [
-            'safe',
-            'goal',
-            'friendly_glob',
-            'enemy_glob',
-            'neutral_glob'
-        ]}
-    ]
     used_action_states = [
         'moved_out_of_home',
         {'new_pos_events': [

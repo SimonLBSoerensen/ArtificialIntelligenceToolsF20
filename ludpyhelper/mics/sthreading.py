@@ -6,9 +6,10 @@ import os
 
 
 class WorkerThread(threading.Thread):
-    def __init__(self, task_queue, result_queue, sleep_time=0.1, kill_when_done=False):
+    def __init__(self, task_queue, result_queue, sleep_time=0.1, kill_when_done=False, name=""):
         threading.Thread.__init__(self)
-
+        if name != "":
+            self.name = name
         self.task_queue = task_queue
         self.result_queue = result_queue
 
@@ -29,7 +30,10 @@ class WorkerThread(threading.Thread):
     def run(self):
         while not self._kill:
             if self.task_queue.qsize() > 0:
-                func, arg = self.task_queue.get()
+                func, arg, name = self.task_queue.get()
+                if name != "":
+                    self.name = name
+
                 res = func(**arg)
                 self.result_queue.put(res)
 
@@ -46,7 +50,8 @@ class ThreadHandler:
         self.task_queue = queue.Queue()
         self.result_queue = queue.Queue()
         self.out_stading_jobs = 0
-        self.hreads = []
+        self.threads = []
+        self.n_threads = 0
 
     def make_threads(self, n, fcpu=None, sleep_time=0.1, kill_when_done=False):
         if fcpu is not None:
@@ -55,14 +60,15 @@ class ThreadHandler:
 
         for _ in range(n):
             t = WorkerThread(self.task_queue, self.result_queue, sleep_time, kill_when_done)
-            self.hreads.append(t)
+            self.threads.append(t)
+        self.n_threads = n
 
     def start_threads(self):
-        for t in self.hreads:
+        for t in self.threads:
             t.start()
 
-    def put_job(self, func, args):
-        self.task_queue.put([func, args])
+    def put_job(self, func, args={}, name=""):
+        self.task_queue.put([func, args, name])
         self.out_stading_jobs += 1
 
     def available_results(self):
@@ -80,14 +86,14 @@ class ThreadHandler:
             self.task_queue.join()
 
         # First give kill sign
-        for t in self.hreads:
+        for t in self.threads:
             t.kill()
         # Then wait for all to join
-        for t in self.hreads:
+        for t in self.threads:
             t.join()
 
     def threads_alive(self):
-        alive = [t.is_alive() for t in self.hreads]
+        alive = [t.is_alive() for t in self.threads]
         n_alive = sum(alive)
         return n_alive
 
