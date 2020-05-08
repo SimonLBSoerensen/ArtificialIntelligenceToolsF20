@@ -138,7 +138,7 @@ base_config = {
     "use_epsilon_update": True,
     "use_replay_buffer": True,
     "flat_sample": False,
-    "main_out_folder": "Runs/LTest4_Big_neg_Slet",
+    "main_out_folder": "Runs/LTest_New_s",
     "run_random": False,
     "close_plots": False,
     "print_id": 0,
