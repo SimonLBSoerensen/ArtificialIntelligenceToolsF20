@@ -10,6 +10,7 @@ import os
 def flatten(l):
     return [item for sublist in l for item in sublist]
 
+
 def save_video(filename, ar, fps=8, frame_size=None, fourcc=None, cvt_color_flag=cv2.COLOR_RGB2BGR):
     if fourcc is None:
         file_ext = os.path.split(filename)[-1].split(os.path.extsep)[-1]
@@ -41,16 +42,19 @@ def save_video(filename, ar, fps=8, frame_size=None, fourcc=None, cvt_color_flag
 
     video_out.release()
 
+
 def draw_board_with_players(player_pieces, enemy_pieces):
     board = ludopy.visualizer.draw_basic_board()
     ludopy.visualizer.draw_players(board, [player_pieces] + enemy_pieces)
     return board
 
+
 def plot_board(player_pieces, enemy_pieces):
     board = draw_board_with_players(player_pieces, enemy_pieces)
-    plt.figure(figsize=(10,10))
+    plt.figure(figsize=(10, 10))
     plt.imshow(board)
     plt.show()
+
 
 def piece_pos_events(pos, Q_sep=4):
     events = {}
@@ -59,7 +63,8 @@ def piece_pos_events(pos, Q_sep=4):
     events["star"] = pos in ludopy.player.STAR_INDEXS
     events["goal_star"] = pos == ludopy.player.STAR_INDEXS[-1]
     events["neutral_glob"] = pos in ludopy.player.GLOB_INDEXS
-    events["enemy_glob"] = pos in [ludopy.player.ENEMY_1_GLOB_INDX, ludopy.player.ENEMY_2_GLOB_INDX, ludopy.player.ENEMY_3_GLOB_INDX]
+    events["enemy_glob"] = pos in [ludopy.player.ENEMY_1_GLOB_INDX, ludopy.player.ENEMY_2_GLOB_INDX,
+                                   ludopy.player.ENEMY_3_GLOB_INDX]
     events["friendly_glob"] = pos == ludopy.player.START_INDEX
     events["home_areal"] = pos in ludopy.player.HOME_AREAL_INDEXS
     events["goal"] = pos == ludopy.player.GOAL_INDEX
@@ -67,18 +72,20 @@ def piece_pos_events(pos, Q_sep=4):
     events["glob"] = events["neutral_glob"] or events["enemy_glob"] or events["friendly_glob"]
 
     for i in range(Q_sep):
-        events[f"Q{i+1}"] = ludopy.player.GOAL_INDEX/Q_sep * i <= pos < ludopy.player.GOAL_INDEX/Q_sep * (i+1)
+        events[f"Q{i + 1}"] = ludopy.player.GOAL_INDEX / Q_sep * i <= pos < ludopy.player.GOAL_INDEX / Q_sep * (i + 1)
 
-
-    events["safe"] = (events['goal'] or events['home_areal'] or events['home'] or events['neutral_glob'] or events['friendly_glob'])
+    events["safe"] = (events['goal'] or events['home_areal'] or events['home'] or events['neutral_glob'] or events[
+        'friendly_glob'])
 
     return events
+
 
 def set_game_players(game, player_pieces, enemy_pieces):
     game.players[0].set_pieces(player_pieces)
     for i in range(1, len(game.players)):
-        game.players[i].set_pieces(enemy_pieces[i-1])
+        game.players[i].set_pieces(enemy_pieces[i - 1])
     return game
+
 
 def get_locsest_star_and_con_star(pos):
     stars = np.array(ludopy.player.STAR_INDEXS)
@@ -90,10 +97,11 @@ def get_locsest_star_and_con_star(pos):
         closets_start_indx = len(stars) - 1
     start_con_idx = closets_start_indx - 1
     if start_con_idx < 0:
-        start_con_idx = len(stars)-1
+        start_con_idx = len(stars) - 1
     closets_star = stars[closets_start_indx]
     con_star = stars[start_con_idx]
     return closets_star, con_star
+
 
 def piece_safe(pos, enemy_pieces, rounds):
     pice_state = piece_pos_events(pos)
@@ -102,7 +110,7 @@ def piece_safe(pos, enemy_pieces, rounds):
     if pice_state["safe"]:
         check_pos = []
     else:
-        pos_back = list(reversed(np.arange(pos-6*rounds, pos)))
+        pos_back = list(reversed(np.arange(pos - 6 * rounds, pos)))
 
         if 0 in pos_back:
             zero_idx = pos_back.index(0)
@@ -140,6 +148,7 @@ def piece_safe(pos, enemy_pieces, rounds):
 
     return pice_safe, check_pos
 
+
 def vis_piece_safe(rounds, enemy_pieces):
     boards = []
     for piece in range(0, 60):
@@ -157,6 +166,7 @@ def vis_piece_safe(rounds, enemy_pieces):
 
         boards.append(board)
     return boards
+
 
 def get_action_states(piece, dice, player_pieces, enemy_pieces):
     p = ludopy.player.Player()
@@ -194,34 +204,42 @@ def get_action_states(piece, dice, player_pieces, enemy_pieces):
     action_states["moved"] = moved
     return action_states
 
-def get_pos_state(pos, player_pieces, enemy_pieces, roundcount = 2):
+
+def get_pos_state(pos, player_pieces, enemy_pieces, roundcount=2):
     events = piece_pos_events(pos, Q_sep=4)
 
     events["safe"] = events["safe"] or list(player_pieces).count(pos) > 1
 
-    for round_i in range(1, roundcount+1):
+    for round_i in range(1, roundcount + 1):
         safe_round, _ = piece_safe(pos, enemy_pieces, rounds=round_i)
         events[f"safe_round_{round_i}"] = safe_round
 
     return events
 
-def cal_game_events(pre_action_player_pieces, pre_action_enemy_pieces, pos_action_player_pieces, pos_action_enemy_pieces):
-    #pre_action_player_pieces, pre_action_enemy_pieces, pos_action_player_pieces, pos_action_enemy_pieces = np.array(pre_action_player_pieces), np.array(pre_action_enemy_pieces), np.array(pos_action_player_pieces), np.array(pos_action_enemy_pieces)
+
+def cal_game_events(pre_action_player_pieces, pre_action_enemy_pieces, pos_action_player_pieces,
+                    pos_action_enemy_pieces):
+    # pre_action_player_pieces, pre_action_enemy_pieces, pos_action_player_pieces, pos_action_enemy_pieces = np.array(pre_action_player_pieces), np.array(pre_action_enemy_pieces), np.array(pos_action_player_pieces), np.array(pos_action_enemy_pieces)
     events = {}
-    enemy_hit_home = flatten(pre_action_enemy_pieces).count(ludopy.player.HOME_INDEX) < flatten(pos_action_enemy_pieces).count(ludopy.player.HOME_INDEX)
+    enemy_hit_home = flatten(pre_action_enemy_pieces).count(ludopy.player.HOME_INDEX) < flatten(
+        pos_action_enemy_pieces).count(ludopy.player.HOME_INDEX)
     events["enemy_hit_home"] = enemy_hit_home
-    player_hit_home = list(pre_action_player_pieces).count(ludopy.player.HOME_INDEX) < list(pos_action_player_pieces).count(ludopy.player.HOME_INDEX)
+    player_hit_home = list(pre_action_player_pieces).count(ludopy.player.HOME_INDEX) < list(
+        pos_action_player_pieces).count(ludopy.player.HOME_INDEX)
     events["player_hit_home"] = player_hit_home
-    player_left_home = list(pre_action_player_pieces).count(ludopy.player.HOME_INDEX) > list(pos_action_player_pieces).count(ludopy.player.HOME_INDEX)
+    player_left_home = list(pre_action_player_pieces).count(ludopy.player.HOME_INDEX) > list(
+        pos_action_player_pieces).count(ludopy.player.HOME_INDEX)
     events["player_left_home"] = player_left_home
-    player_piece_got_to_goal = list(pre_action_player_pieces).count(ludopy.player.GOAL_INDEX) < list(pos_action_player_pieces).count(ludopy.player.GOAL_INDEX)
+    player_piece_got_to_goal = list(pre_action_player_pieces).count(ludopy.player.GOAL_INDEX) < list(
+        pos_action_player_pieces).count(ludopy.player.GOAL_INDEX)
     events["player_piece_got_to_goal"] = player_piece_got_to_goal
-    #events["on"] = [pre_action_player_pieces, pre_action_enemy_pieces, pos_action_player_pieces, pos_action_enemy_pieces]
+    # events["on"] = [pre_action_player_pieces, pre_action_enemy_pieces, pos_action_player_pieces, pos_action_enemy_pieces]
 
     player_is_a_winner = list(pos_action_player_pieces).count(ludopy.player.GOAL_INDEX) == len(pos_action_player_pieces)
     events["player_is_a_winner"] = player_is_a_winner
 
-    enemy_winners = [list(en_player).count(ludopy.player.GOAL_INDEX) == len(en_player) for en_player in pre_action_enemy_pieces]
+    enemy_winners = [list(en_player).count(ludopy.player.GOAL_INDEX) == len(en_player) for en_player in
+                     pre_action_enemy_pieces]
     events["other_player_is_a_winner"] = any(enemy_winners) and not player_is_a_winner
 
     pre_pos_states = []
@@ -234,7 +252,6 @@ def cal_game_events(pre_action_player_pieces, pre_action_enemy_pieces, pos_actio
         moved_pice = moved_pice[0]
     else:
         moved_pice = -1
-
 
     for piece in range(len(pre_action_player_pieces)):
         pre_pos_states.append(
@@ -274,18 +291,9 @@ def cal_game_events(pre_action_player_pieces, pre_action_enemy_pieces, pos_actio
 
     return events
 
-def cal_reward_and_endgame(game_events):
-    reward_tabel = {
-        "enemy_hit_home": [True, 1],
-        "player_hit_home": [True, -1],
-        "player_left_home": [True, 1],
-        "player_piece_got_to_goal": [True, 4],
-        "player_is_a_winner": [True, 10],
-        "other_player_is_a_winner": [True, -10],
-    }
 
+def cal_reward_and_endgame(game_events, reward_tabel):
     end_game_evnets = ["player_is_a_winner", "other_player_is_a_winner"]
-
     reward = 0
     for event_key in game_events:
         if event_key in reward_tabel:
@@ -297,24 +305,9 @@ def cal_reward_and_endgame(game_events):
 
     return reward, end_game
 
-def cal_state(player_pieces, enemy_pieces, dice):
-    # Piece States
-    used_piece_states = ['home_areal']
 
-    # Actions States
-    used_action_states = [
-        'moved_out_of_home',
-        'enemy_hit_home',
-        "got_hit_home",
-        {'new_pos_events': [
-            'goal',
-            'star',
-            'safe',
-        ]},
-    ]
-
+def cal_state(player_pieces, enemy_pieces, dice, used_piece_states, used_action_states):
     state = []
-
     for i, pos in enumerate(player_pieces):
 
         action_states = get_action_states(i, dice, player_pieces, enemy_pieces)
@@ -333,7 +326,7 @@ def cal_state(player_pieces, enemy_pieces, dice):
     return state
 
 
-def run_random_game(save_video = False):
+def run_random_game(save_video=False):
     g = ludopy.Game()
 
     game_done = False
@@ -347,12 +340,13 @@ def run_random_game(save_video = False):
 
     while not all(player_end):
         (dice, move_pieces, player_pieces, enemy_pieces, player_is_a_winner, game_done), player_i = g.get_observation()
-        #enemy_pieces = np.copy(enemy_pieces)
+        # enemy_pieces = np.copy(enemy_pieces)
         action = -1
         if len(move_pieces):
             action = random.choice(move_pieces)
 
-        (_, _, player_pieces_after, enemy_pieces_after, player_is_a_winner_after, game_done_after) = g.answer_observation(action)
+        (_, _, player_pieces_after, enemy_pieces_after, player_is_a_winner_after,
+         game_done_after) = g.answer_observation(action)
 
         if action != -1:
             game_event = cal_game_events(player_pieces, enemy_pieces, player_pieces_after, enemy_pieces_after)
@@ -364,10 +358,11 @@ def run_random_game(save_video = False):
         else:
             reward = 0
 
+        cal_state(player_pieces, enemy_pieces, dice)  # For at test at der kan laves states
 
-        cal_state(player_pieces, enemy_pieces, dice) #For at test at der kan laves states
-
-        game_obs[player_i].append([dice, move_pieces, player_pieces, enemy_pieces, player_is_a_winner, game_done, action, player_pieces_after, enemy_pieces_after, player_is_a_winner_after, game_done_after])
+        game_obs[player_i].append(
+            [dice, move_pieces, player_pieces, enemy_pieces, player_is_a_winner, game_done, action, player_pieces_after,
+             enemy_pieces_after, player_is_a_winner_after, game_done_after])
 
     if save_video:
         g.save_hist_video("test.mp4")

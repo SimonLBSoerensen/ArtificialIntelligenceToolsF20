@@ -13,19 +13,20 @@ import uuid
 import os
 import shutil
 
-
 def make_run(config):
     run_id = str(uuid.uuid4())
     out_folder = os.path.join(config["main_out_folder"], run_id)
     os.makedirs(out_folder, exist_ok=True)
 
     shutil.copy2(os.path.realpath(__file__), os.path.join(out_folder, "run_script.txt"))
+    shutil.copy2("ludpyhelper/gamehelper/mics.py", os.path.join(out_folder, "r_s.txt"))
+    shutil.copy2("ludpyhelper/RL/QLearning/qtable.py", os.path.join(out_folder, "q.txt"))
 
     if config["run_random"]:
         print(f"""{config["print_id"]}: This is a random run!!!!""")
 
     def epsilon_update(ep):
-        return 0.3 #ramp(ep, 1.0, config["game_to_run"]//4*3, config["game_to_run"]//4)
+        return ramp(ep, 1.0, config["game_to_run"]//4*3, config["game_to_run"]//4)
 
     agent = NQTable(action_space=4, n_q_tabels=config["NQ"], initial_memory_size=config["initial_memory_size"],
                     max_memory_size=config["max_memory_size"], n_old=config["n_old"], k=config["k"],
@@ -52,7 +53,7 @@ def make_run(config):
 
             if player_i == 0:
                 if len(move_pieces):
-                    state = cal_state(player_pieces, enemy_pieces, dice)
+                    state = cal_state(player_pieces, enemy_pieces, dice, config["used_piece_states"], config["used_action_states"])
                     state = tuple(state)
 
                     if not config["run_random"]:
@@ -76,11 +77,11 @@ def make_run(config):
             if player_i == 0:
                 if len(move_pieces):
                     game_event = cal_game_events(player_pieces, enemy_pieces, player_pieces_after, enemy_pieces_after)
-                    reward, end_game = cal_reward_and_endgame(game_event)
+                    reward, end_game = cal_reward_and_endgame(game_event, config["reward_tabel"])
                     run_reward += reward
 
                     if not config["run_random"]:
-                        new_states = [tuple(cal_state(player_pieces, enemy_pieces, d)) for d in range(1, 6+1)]
+                        new_states = [tuple(cal_state(player_pieces, enemy_pieces, d, config["used_piece_states"], config["used_action_states"])) for d in range(1, 6+1)]
 
                         agent.update(state, action, new_states, reward, terminal_state=end_game, save_experience=True,
                                      new_state_list=True, auto_update_episode=False)
@@ -102,10 +103,10 @@ def make_run(config):
     np.save(os.path.join(out_folder, "epsilon_hist.npy"), epsilon_hist)
     np.save(os.path.join(out_folder, "memory_hist.npy"), memory_hist)
 
-    rt.plot(save=out_folder, close_plots=config["close_plots"])
+    rt.plot(save=out_folder, close_plots=config["close_plots"], pre_fix=config["pre_fix"], alpha=0)
 
     plt.figure()
-    plt.title("Epsilon")
+    plt.title(config["pre_fix"]+"Epsilon")
     plt.plot(epsilon_hist)
     plt.savefig(os.path.join(out_folder, "epsilon.svg"))
     if config["close_plots"]:
@@ -114,7 +115,7 @@ def make_run(config):
         plt.show()
 
     plt.figure()
-    plt.title("Memory hist")
+    plt.title(config["pre_fix"]+"Memory hist")
     plt.plot(memory_hist)
     plt.savefig(os.path.join(out_folder, "memory.svg"))
     if config["close_plots"]:
@@ -125,7 +126,35 @@ def make_run(config):
     save_json(os.path.join(out_folder, "config.json"), config)
     print(f"""{config["print_id"]}: Done""")
 
+
+used_piece_states = ['home_areal', "safe_round_1"]
+# Actions States
+used_action_states = [
+    'moved_out_of_home',
+    {'new_pos_events': [
+        'goal',
+        'glob',
+        'star',
+        'home_areal',
+    ]},
+    'enemy_hit_home',
+    "got_hit_home",
+]
+
+reward_tabel = {
+    "enemy_hit_home": [True, 1],
+    "player_hit_home": [True, -1],
+    "player_left_home": [True, 1],
+    "player_piece_got_to_goal": [True, 4],
+    "player_is_a_winner": [True, 10],
+    "other_player_is_a_winner": [True, -10],
+}
+
+
 base_config = {
+    "reward_tabel": reward_tabel,
+    "used_piece_states":used_piece_states,
+    "used_action_states":used_action_states,
     "start_epsilon": 1.0,
     "game_to_run": 2000,
     "learning_rate": 0.1,
@@ -138,30 +167,40 @@ base_config = {
     "use_epsilon_update": True,
     "use_replay_buffer": True,
     "flat_sample": False,
-    "main_out_folder": "Runs/LTest_New_s",
+    "main_out_folder": "Runs/PlayerEndGame",
     "run_random": False,
     "close_plots": False,
     "print_id": 0,
     "print_every": 100,
+    "pre_fix":"",
 }
 
-th = ThreadHandler()
-th.make_threads(None, 1/2, kill_when_done=True)
+run_name = "Old state"
 
 configs = []
 
 run_config = base_config.copy()
 run_config["print_id"] = 0
+run_config["pre_fix"] = run_name + f"""({run_config["print_id"]}) : """
 configs.append(run_config)
+
 run_config = base_config.copy()
 run_config["print_id"] = 1
+run_config["pre_fix"] = run_name + f"""({run_config["print_id"]}) : """
 configs.append(run_config)
+
 run_config = base_config.copy()
 run_config["print_id"] = 2
+run_config["pre_fix"] = run_name + f"""({run_config["print_id"]}) : """
 configs.append(run_config)
+
 run_config = base_config.copy()
 run_config["print_id"] = 3
+run_config["pre_fix"] = run_name + f"""({run_config["print_id"]}) : """
 configs.append(run_config)
+
+th = ThreadHandler()
+th.make_threads(len(configs), kill_when_done=True)
 
 for r_config in configs:
     th.put_job(make_run, {"config":r_config})

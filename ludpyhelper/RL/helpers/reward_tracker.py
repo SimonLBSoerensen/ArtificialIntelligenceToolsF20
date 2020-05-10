@@ -10,11 +10,12 @@ class RTrack:
     def add(self, reward):
         self.reward_hist.append(reward)
 
-    def plot(self, window=100, alpha=0.2, save=False, close_plots=False):
+    def plot(self, window=100, alpha=0.2, save=False, close_plots=False, pre_fix=""):
         plt.figure()
-        plt.title("Mean")
+        plt.title(pre_fix+"Mean")
         p = plt.plot(bn.move_mean(self.reward_hist, window=window))[0]
-        plt.plot(self.reward_hist, color=p.get_color(), alpha=alpha)
+        if alpha > 0:
+            plt.plot(self.reward_hist, color=p.get_color(), alpha=alpha)
         plt.xlim(xmin=0)
         plt.grid(True)
         if not save is False:
@@ -25,7 +26,7 @@ class RTrack:
             plt.close()
 
         plt.figure()
-        plt.title("Min")
+        plt.title(pre_fix+"Min")
         plt.plot(bn.move_min(self.reward_hist, window=window))
         plt.xlim(xmin=0)
         plt.grid(True)
@@ -37,7 +38,7 @@ class RTrack:
             plt.close()
 
         plt.figure()
-        plt.title("Max")
+        plt.title(pre_fix+"Max")
         plt.plot(bn.move_max(self.reward_hist, window=window))
         plt.xlim(xmin=0)
         plt.grid(True)
