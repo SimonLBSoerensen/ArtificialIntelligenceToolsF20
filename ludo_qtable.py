@@ -39,7 +39,7 @@ def make_run(config):
         print(f"""{config["print_id"]}: This is a other player type!!!!""")
 
     def epsilon_update(ep):
-        if config["lock_epsilon"]:
+        if not config["use_ramp"]:
             return config["start_epsilon"]
         else:
             return ramp(ep, 1.0, config["game_to_run"]//4*3, config["game_to_run"]//4)
@@ -195,7 +195,7 @@ base_config = {
     "used_piece_states":used_piece_states,
     "used_action_states":used_action_states,
     "start_epsilon": 1.0,
-    "lock_epsilon": False,
+    "use_ramp": True,
     "game_to_run": 2000,
     "learning_rate": 0.05,
     "discount_factor": 0.8,
@@ -234,7 +234,7 @@ for i in range(n_runs):
     run_config["print_id"] = id_count
     id_count += 1
     run_config["pre_fix"] = run_name + f"""({run_config["print_id"]}) : """
-    run_config["lock_epsilon"] = True
+    run_config["use_ramp"] = False
     run_config["discount_factor"] = ep
     configs.append(run_config)
 
