@@ -4,11 +4,24 @@ import matplotlib.pyplot as plt
 import os
 
 class RTrack:
-    def __init__(self):
+    def __init__(self, csv_file=None):
         self.reward_hist = []
+        self.csv_file = csv_file
+        if self.csv_file is not None:
+            self._start_csv_file()
+
+    def _start_csv_file(self):
+        with open(self.csv_file, "a") as f:
+            f.write(f"reward\n")
+
+    def _write_csv(self, reward):
+        with open(self.csv_file, "a") as f:
+            f.write(f"{reward}\n")
         
     def add(self, reward):
         self.reward_hist.append(reward)
+        if self.csv_file is not None:
+            self._write_csv(reward)
 
     def plot(self, window=100, alpha=0.2, save=False, close_plots=False, pre_fix=""):
         plt.figure()
