@@ -40,7 +40,10 @@ def make_run(config):
 
     def epsilon_update(ep):
         if not config["use_ramp"]:
-            return config["start_epsilon"]
+            if config["game_to_run"]//4*3 < ep:
+                return 0.0
+            else:
+                return config["start_epsilon"]
         else:
             return ramp(ep, 1.0, config["game_to_run"]//4*3, config["game_to_run"]//4)
 
@@ -165,7 +168,8 @@ def make_run(config):
         plt.show()
 
     save_json(os.path.join(out_folder, "config.json"), config)
-    print(f"""{config["print_id"]}: Done""")
+    print(f"""{config["print_id"]}:{tabs} Done""")
+
 
 reward_tabel = {
     "enemy_hit_home": [True, 1],
@@ -207,7 +211,7 @@ base_config = {
     "use_epsilon_update": True,
     "use_replay_buffer": True,
     "flat_sample": False,
-    "main_out_folder": "Runs/EP",
+    "main_out_folder": "Runs/NQ",
     "run_random": False,
     "close_plots": True,
     "print_id": 0,
@@ -221,12 +225,10 @@ configs = []
 id_count = 0
 n_runs = 5
 
-ep_to_test = np.linspace(0, 0.9, 7) #[0.70, 0.80, 0.85, 0.90, 0.95, 0.97, 0.999]
-ep = ep_to_test[0]
+to_test = [9,10,6,4]
+t_ele = to_test[3]
 
-# TODO Måske også test NQ?
-
-run_name = f"{ep}"
+run_name = f"{t_ele}"
 for i in range(n_runs):
     run_config = base_config.copy()
     run_config["run_name"] = run_name
@@ -234,8 +236,10 @@ for i in range(n_runs):
     run_config["print_id"] = id_count
     id_count += 1
     run_config["pre_fix"] = run_name + f"""({run_config["print_id"]}) : """
-    run_config["use_ramp"] = False
-    run_config["discount_factor"] = ep
+
+    # TODO Husk at være sikker på alt er sat
+    run_config["NQ"] = t_ele
+
     configs.append(run_config)
 
 th = ThreadHandler()
