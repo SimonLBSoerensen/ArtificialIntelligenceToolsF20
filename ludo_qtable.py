@@ -1,7 +1,7 @@
 from ludopy import Game
 from ludpyhelper.RL.QLearning.qtable import NQTable
 from ludpyhelper.RL.helpers.reward_tracker import RTrack
-from ludpyhelper.gamehelper import cal_state, cal_game_events, cal_reward_and_endgame
+from ludpyhelper.gamehelper import cal_state, cal_game_events, cal_reward_and_endgame, cal_move
 from tqdm import tqdm
 import random
 from ludpyhelper.mics.functions import ramp
@@ -9,6 +9,7 @@ from ludpyhelper.mics.mics import save_json
 from ludpyhelper.mics.sthreading import ThreadHandler
 from ludpyhelper.hardcode_players.fifo import FIFOPlayer
 from ludpyhelper.hardcode_players.semismart import SemiSmartPlayer
+from ludpyhelper.hardcode_players.emil import GANNIndividual
 import matplotlib.pyplot as plt
 import numpy as np
 import uuid
@@ -18,6 +19,20 @@ import time
 
 fifo_p = FIFOPlayer()
 semis_p = SemiSmartPlayer()
+emil_p = GANNIndividual()
+emil_p.load_chromosome(np.load("gen311.npy"))
+
+def use_emil(move_pieces, player_pieces, enemy_pieces, dice):
+    next_piceces = []
+    for pice in [0, 1, 2, 3]:
+        if pice not in move_pieces:
+            next_piceces.append(False)
+        else:
+            new_player_pieces, new_enemy_pieces = cal_move(player_pieces, enemy_pieces,
+                                                           dice, pice)
+            next_piceces.append([list(new_player_pieces)] + list(new_enemy_pieces))
+    action = emil_p.play([list(player_pieces)] + list(enemy_pieces), dice, next_piceces)
+    return action
 
 def flatten(l):
     return [item for sublist in l for item in sublist]
@@ -38,6 +53,8 @@ def make_run(config):
     if config["other_player_type"] != "":
         print(f"""{config["print_id"]}: This is a other player type!!!!""")
 
+    player_is_the_winner_arr = []
+    player_is_the_winner_ext = []
     def epsilon_update(ep):
         if not config["use_ramp"]:
             if config["game_to_run"]//4*3 < ep:
@@ -83,7 +100,7 @@ def make_run(config):
             (dice, move_pieces, player_pieces, enemy_pieces,
              player_is_a_winner, game_done), player_i = g.get_observation()
 
-            if player_i == 0:
+            if player_i == 0 or config["use_to_players"] and player_i == 1:
                 if len(move_pieces):
                     if config["other_player_type"] == "":
                         state = run_cal_state(player_pieces, enemy_pieces, dice, config["used_piece_states"],
@@ -96,11 +113,24 @@ def make_run(config):
                     else:
                         if config["other_player_type"] == "random":
                             action = random.choice(move_pieces)
-                        if config["other_player_type"] == "FIDO":
+                        if config["other_player_type"] == "FIFO":
                             action = fifo_p.act(move_pieces, player_pieces, enemy_pieces, dice)
-                        if config["other_player_type"] == "semismart":
+                        if config["other_player_type"] == "SemiSmart":
                             action = semis_p.act(move_pieces, player_pieces, enemy_pieces, dice)
-
+                        if config["other_player_type"] == "GA NN":
+                            action = use_emil(move_pieces, player_pieces, enemy_pieces, dice)
+                else:
+                    action = -1
+            elif (player_i == 2 or player_i == 3) and config["other_player_enemy"] != "":
+                if len(move_pieces):
+                    if config["other_player_enemy"] == "random":
+                        action = random.choice(move_pieces)
+                    if config["other_player_enemy"] == "FIFO":
+                        action = fifo_p.act(move_pieces, player_pieces, enemy_pieces, dice)
+                    if config["other_player_enemy"] == "SemiSmart":
+                        action = semis_p.act(move_pieces, player_pieces, enemy_pieces, dice)
+                    if config["other_player_enemy"] == "GA NN":
+                        action = use_emil(move_pieces, player_pieces, enemy_pieces, dice)
                 else:
                     action = -1
             else:
@@ -112,11 +142,20 @@ def make_run(config):
             (_, _, player_pieces_after, enemy_pieces_after,
                    player_is_a_winner_after, game_done_after) = g.answer_observation(action)
 
-            if player_i == 0:
+            if game_done_after:
+                player_is_the_winner_ext.append(player_i)
+
+            if player_i == 0 or config["use_to_players"] and player_i == 1:
                 if len(move_pieces):
                     game_event = cal_game_events(player_pieces, enemy_pieces, player_pieces_after, enemy_pieces_after)
                     reward, end_game = cal_reward_and_endgame(game_event, config["reward_tabel"])
                     run_reward += reward
+
+                    if end_game:
+                        if player_is_a_winner_after:
+                            player_is_the_winner_arr.append(1)
+                        else:
+                            player_is_the_winner_arr.append(0)
 
                     if config["other_player_type"] == "":
                         new_states = [tuple(run_cal_state(player_pieces, enemy_pieces, d, config["used_piece_states"],
@@ -146,6 +185,8 @@ def make_run(config):
     rt.save(os.path.join(out_folder, "rewards.npy"))
     np.save(os.path.join(out_folder, "epsilon_hist.npy"), epsilon_hist)
     np.save(os.path.join(out_folder, "memory_hist.npy"), memory_hist)
+    np.save(os.path.join(out_folder, "player_winner_hist.npy"), player_is_the_winner_arr)
+    np.save(os.path.join(out_folder, "player_winner_ext.npy"), player_is_the_winner_ext)
 
     rt.plot(save=out_folder, close_plots=config["close_plots"], pre_fix=config["pre_fix"], alpha=0)
 
@@ -211,7 +252,7 @@ base_config = {
     "use_epsilon_update": True,
     "use_replay_buffer": True,
     "flat_sample": False,
-    "main_out_folder": "Runs/NQ",
+    "main_out_folder": "Runs/VS",
     "run_random": False,
     "close_plots": True,
     "print_id": 0,
@@ -220,15 +261,17 @@ base_config = {
     "use_full_state": False,
     "other_player_type": "",
     "run_name": "",
+    "use_to_players": False,
+    "other_player_enemy":"",
 }
 configs = []
 id_count = 0
 n_runs = 5
 
-to_test = [9,10,6,4]
-t_ele = to_test[3]
+to_test = ["FIFO", "SemiSmart", "random", "GA NN"]
+t_ele = to_test[1]
 
-run_name = f"{t_ele}"
+run_name = f"GA NN vs Rand"
 for i in range(n_runs):
     run_config = base_config.copy()
     run_config["run_name"] = run_name
@@ -238,7 +281,9 @@ for i in range(n_runs):
     run_config["pre_fix"] = run_name + f"""({run_config["print_id"]}) : """
 
     # TODO Husk at være sikker på alt er sat
-    run_config["NQ"] = t_ele
+    run_config["other_player_type"] = "GA NN"
+    run_config["use_to_players"] = True
+    run_config["other_player_enemy"] = "random"
 
     configs.append(run_config)
 

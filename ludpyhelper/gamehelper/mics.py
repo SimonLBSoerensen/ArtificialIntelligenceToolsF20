@@ -168,6 +168,14 @@ def vis_piece_safe(rounds, enemy_pieces):
     return boards
 
 
+def cal_move(player_pieces, enemy_pieces, dice, piece):
+    p = ludopy.player.Player()
+    p.set_pieces(player_pieces.copy())
+    new_enemy_pieces = p.move_piece(piece, dice, enemy_pieces.copy())
+    new_player_pieces = p.get_pieces()
+    return new_player_pieces, new_enemy_pieces
+
+
 def get_action_states(piece, dice, player_pieces, enemy_pieces):
     p = ludopy.player.Player()
     p.set_pieces(player_pieces)

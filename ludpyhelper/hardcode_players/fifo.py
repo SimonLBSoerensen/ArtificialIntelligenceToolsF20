@@ -1,5 +1,5 @@
 import ludopy
-
+import random
 
 class FIFOPlayer:
     def __init__(self):
@@ -15,4 +15,6 @@ class FIFOPlayer:
                 if self.current_piece > 3:
                     self.current_piece = 0  # Skulle ikke ske men nu vil den bare loope
             piece_to_move = self.current_piece
+        if piece_to_move not in move_pieces:
+            piece_to_move = random.choice(move_pieces)
         return piece_to_move

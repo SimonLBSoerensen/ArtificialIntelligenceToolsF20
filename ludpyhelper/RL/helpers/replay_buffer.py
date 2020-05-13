@@ -54,6 +54,11 @@ class PER(ER):
 
             td_abs = np.abs(self.td_buffer)
             td_p = td_abs / td_abs.sum()
+            p_sum = td_p.sum()
+
+            # Fail safe
+            if np.round(p_sum, decimals=1) != 1.0:
+                td_p = None
 
             sample_idxs = np.random.choice(len(self.buffer), size=real_batch_size, p=td_p)
 
