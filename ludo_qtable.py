@@ -18,6 +18,7 @@ import shutil
 import time
 
 fifo_p = FIFOPlayer()
+fifo2_p = FIFOPlayer()
 semis_p = SemiSmartPlayer()
 emil_p = GANNIndividual()
 emil_p.load_chromosome(np.load("gen311.npy"))
@@ -114,7 +115,10 @@ def make_run(config):
                         if config["other_player_type"] == "random":
                             action = random.choice(move_pieces)
                         if config["other_player_type"] == "FIFO":
-                            action = fifo_p.act(move_pieces, player_pieces, enemy_pieces, dice)
+                            if player_i == 0:
+                                action = fifo_p.act(move_pieces, player_pieces, enemy_pieces, dice)
+                            else:
+                                action = fifo2_p.act(move_pieces, player_pieces, enemy_pieces, dice)
                         if config["other_player_type"] == "SemiSmart":
                             action = semis_p.act(move_pieces, player_pieces, enemy_pieces, dice)
                         if config["other_player_type"] == "GA NN":
@@ -126,11 +130,15 @@ def make_run(config):
                     if config["other_player_enemy"] == "random":
                         action = random.choice(move_pieces)
                     if config["other_player_enemy"] == "FIFO":
-                        action = fifo_p.act(move_pieces, player_pieces, enemy_pieces, dice)
+                        if player_i == 2:
+                            action = fifo_p.act(move_pieces, player_pieces, enemy_pieces, dice)
+                        else:
+                            action = fifo2_p.act(move_pieces, player_pieces, enemy_pieces, dice)
                     if config["other_player_enemy"] == "SemiSmart":
                         action = semis_p.act(move_pieces, player_pieces, enemy_pieces, dice)
                     if config["other_player_enemy"] == "GA NN":
                         action = use_emil(move_pieces, player_pieces, enemy_pieces, dice)
+                    print(action, move_pieces)
                 else:
                     action = -1
             else:
@@ -163,7 +171,8 @@ def make_run(config):
 
                         agent.update(state, action, new_states, reward, terminal_state=end_game, save_experience=True,
                                      new_state_list=True, auto_update_episode=False)
-
+                else:
+                    action = -1
         rt.add(run_reward)
 
         if config["use_replay_buffer"] and config["other_player_type"] == "":
@@ -268,10 +277,10 @@ configs = []
 id_count = 0
 n_runs = 5
 
-to_test = ["FIFO", "SemiSmart", "random", "GA NN"]
-t_ele = to_test[1]
+#to_test = ["FIFO", "SemiSmart", "random", "GA NN"]
+#t_ele = to_test[1]
 
-run_name = f"GA NN vs Rand"
+run_name = f"DQ VS FIFO"
 for i in range(n_runs):
     run_config = base_config.copy()
     run_config["run_name"] = run_name
@@ -281,9 +290,9 @@ for i in range(n_runs):
     run_config["pre_fix"] = run_name + f"""({run_config["print_id"]}) : """
 
     # TODO Husk at være sikker på alt er sat
-    run_config["other_player_type"] = "GA NN"
+    #run_config["other_player_type"] = "GA NN"
     run_config["use_to_players"] = True
-    run_config["other_player_enemy"] = "random"
+    run_config["other_player_enemy"] = "FIDO"
 
     configs.append(run_config)
 
